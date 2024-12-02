@@ -1,0 +1,1 @@
+This is a project repository to practise monitoring tool, kafka etc.
