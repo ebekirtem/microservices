@@ -1,0 +1,38 @@
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: coffee-db
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: coffee-db
+    ports:
+      - "5436:5432"
+    command:
+      [
+        "postgres",
+        "-c", "log_statement=all",
+        "-c", "log_min_duration_statement=0"
+      ]
+    volumes:
+      - ./data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    networks:
+      - custom_bridge_network
+
+  redis-insight:
+    image: redis/redisinsight:latest
+    ports:
+      - "5540:5540"
+    networks:
+      - custom_bridge_network
+
+networks:
+  custom_bridge_network:
+    driver: bridge
+

@@ -1,0 +1,70 @@
+spring:
+  application:
+      name: Tracing-demo
+
+  datasource:
+    url: jdbc:postgresql://localhost:5435/mydatabase
+    username: myuser
+    password: mypassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: none
+
+    properties:
+      hibernate:
+        format_sql: true
+
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.xml
+    default-schema: public
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    topic: mytopic
+
+    consumer:
+      group-id: group_id
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      properties:
+        interceptor.classes: io.opentelemetry.instrumentation.kafka.KafkaTelemetryProducerInterceptor
+
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
+
+
+
+#otel:
+#  traces:
+#     exporter:
+#        zipkin:
+#          endpoint: http://localhost:9412  # Grafana Tempo'nun OTLP endpointi
+
+  #by default zipkin runs on port 9411 but if you want to change the port use below config
+#  zipkin:
+#    tracing:
+#      endpoint: http://localhost:9412
+
+
+
+service:
+  ms2:
+    url: http://localhost:8081

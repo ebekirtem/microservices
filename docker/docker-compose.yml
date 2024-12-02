@@ -1,0 +1,201 @@
+
+services:
+  postgres:
+    image: postgres:14
+    container_name: postgres-tracing
+    environment:
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+      POSTGRES_DB: mydatabase
+    ports:
+      - "5432:5432"
+    volumes:
+      - C://tracing:/var/lib/postgresql/data
+
+
+  kafka-consumer:
+    image: ebutdev/kafka-consumer:latest
+    container_name: kafka-consumer
+    environment:
+      SPRING_KAFKA_BOOTSTRAPSERVERS: broker:9092
+      SPRING_KAFKA_CONSUMER_GROUP-ID: mygroup
+      SPRING_KAFKA_TOPIC: mytopic
+
+
+    volumes:
+      - ./logs:/app/logs
+    depends_on:
+      - subservice1
+      - broker
+
+
+  subservice1:
+    image: ebutdev/subservice1:latest
+    container_name: subservice1
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/mydatabase  # Veritabanı URL'si
+      SPRING_DATASOURCE_USERNAME: myuser  # Veritabanı kullanıcı adı
+      SPRING_DATASOURCE_PASSWORD: mypassword  # Veritabanı şifresi
+      SERVICE_MS2_URL: http://subservice2:8080
+      SPRING_KAFKA_BOOTSTRAPSERVERS: broker:9092
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://tempo:9411
+    ports:
+      - "8080:8080"
+    volumes:
+      -  ./logs:/app/logs
+    depends_on:
+      - subservice2
+      - postgres
+      - broker
+
+  subservice2:
+    image: ebutdev/subservice2:latest
+    container_name: subservice2
+    environment:
+      MANAGEMENT_ZIPKIN_TRACING_ENDPOINT: http://tempo:9411
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./logs:/app/logs
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+    restart: unless-stopped
+
+
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    ports:
+      - "9100:9100"
+    depends_on:
+      - prometheus
+
+  init:
+    image: &tempoImage grafana/tempo:latest
+    user: root
+    entrypoint:
+      - "chown"
+      - "10001:10001"
+      - "/var/tempo"
+    volumes:
+      - ./tempo-data:/var/tempo
+
+#  memcached:
+#    image: memcached:1.6.29
+#    container_name: memcached
+#    ports:
+#      - "11211:11211"
+#    environment:
+#      - MEMCACHED_MAX_MEMORY=64m  # Set the maximum memory usage
+#      - MEMCACHED_THREADS=4       # Number of threads to use
+
+  tempo:
+    image: *tempoImage
+    command: [ "-config.file=/etc/tempo.yaml" ]
+    volumes:
+      - ./tempo.yml:/etc/tempo.yaml
+      - ./tempo-data:/var/tempo
+    ports:
+      - "14268:14268"  # jaeger ingest
+      - "3200:3200"   # tempo
+      - "9095:9095" # tempo grpc
+      - "4317:4317"  # otlp grpc
+      - "4318:4318"  # otlp http
+      - "9411:9411"   # zipkin
+    depends_on:
+      - init
+#      - memcached
+
+#  k6-tracing:
+#    image: ghcr.io/grafana/xk6-client-tracing:v0.0.5
+#    environment:
+#      - ENDPOINT=tempo:4317
+#    restart: always
+#    depends_on:
+#      - tempo
+
+  loki:
+    image: grafana/loki:2.9.1
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  grafana:
+    image: grafana/grafana:11.0.0
+    container_name: grafana
+    ports:
+      - "3002:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+    volumes:
+      - ./grafana:/var/lib/grafana
+
+  promtail:
+    image: grafana/promtail:2.9.1
+    volumes:
+      - ./promtail.yml:/etc/promtail/promtail-config.yaml
+      - ./logs:/var/log
+    command: -config.file=/etc/promtail/promtail-config.yaml
+    depends_on:
+      - loki
+
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper
+    hostname: zookeeper
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  broker:
+      image: confluentinc/cp-kafka
+      hostname: broker
+      container_name: broker
+      depends_on:
+        - zookeeper
+      ports:
+        - "9092:9092"
+        - "29092:29092"
+      environment:
+        KAFKA_BROKER_ID: 1
+        KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+        KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://broker:9092,PLAINTEXT_HOST://localhost:29092
+        KAFKA_ADVERTISED_HOST_NAME: broker
+        KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+        KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        CONFLUENT_METRICS_REPORTER_BOOTSTRAP_SERVERS: broker:9092
+        CONFLUENT_METRICS_REPORTER_ZOOKEEPER_CONNECT: zookeeper:2181
+        CONFLUENT_METRICS_REPORTER_TOPIC_REPLICAS: 1
+        CONFLUENT_METRICS_ENABLE: 'true'
+        CONFLUENT_SUPPORT_CUSTOMER_ID: 'anonymous'
+        GROUP_ID: "group-event-1"
+        KAFKA_CREATE_TOPICS: "topic-event-1"
+
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    depends_on:
+      - broker
+
+    ports:
+      - "8086:8080"
+    environment:
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: broker:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper:2181
+
+volumes:
+  prometheus_data: {}
+  grafana_data: {}

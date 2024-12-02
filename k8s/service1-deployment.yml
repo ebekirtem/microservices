@@ -1,0 +1,42 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: subservice1
+  labels:
+    app: subservice1
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: subservice1
+  template:
+    metadata:
+      labels:
+        app: subservice1
+    spec:
+      containers:
+        - name: subservice1-container
+          image: ebutdev/subservice1:latest
+          env:
+            - name:  SERVICE_MS2_URL
+              value: "http://subservice2-service:8080"  # Service 2'nin DNS ismi
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://postgres-service:5432/mydatabase"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "myuser"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "mypassword"
+          ports:
+            - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: subservice1-service
+spec:
+  selector:
+    app: subservice1
+  ports:
+    - port: 8080
+      nodePort: 30001
+  type: NodePort

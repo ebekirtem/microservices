@@ -1,0 +1,10 @@
+spring:
+  application:
+      name: Tracing-demo
+
+server:
+  port: 8085
+
+app:
+  cors:
+    allowed-origins: http://localhost:3000,http://localhost:3000/,

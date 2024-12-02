@@ -1,0 +1,51 @@
+server:
+  port: 8086
+  tomcat:
+    max-swallow-size: -1  # sınırsız olarak ayarlar
+spring:
+  application:
+      name: coffee-service
+  datasource:
+    url: jdbc:postgresql://localhost:5436/coffee-db?reWriteBatchedInserts=true
+    username: myuser
+    password: mypassword
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    show-sql: true
+    hibernate:
+      ddl-auto: update
+
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          batch_size: 200
+        order_updates: true
+        order_inserts: true
+        generate_statistics: true
+
+  cache:
+    type: redis
+    redis:
+      host: localhost
+      port: 6379
+
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/master.xml
+    default-schema: public
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+
+logging:
+  level:
+    org:
+      hibernate:
+        stat: DEBUG
+        SQL: DEBUG
+        type.descriptor.sql.BasicBinder: TRACE

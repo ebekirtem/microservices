@@ -1,0 +1,26 @@
+spring:
+  application:
+      name: kafka-consumer
+  main:
+    web-application-type: none
+
+  kafka:
+    bootstrap-servers: broker:9092
+    topic: mytopic
+
+    consumer:
+      group-id: mygroup
+      auto-offset-reset: earliest
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, prometheus
+    jmx:
+     exposure:
+      include: "*"
+
+  tracing:
+    enabled: true
+    sampling:
+      probability: 1.0
