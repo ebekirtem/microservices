@@ -31,6 +31,6 @@ public class SecurityConfig {
                 .build();
     }
 
-    public static final String MOVIES_ADMIN = "MOVIES_ADMIN";
-    public static final String MOVIES_USER = "MOVIES_USER";
+//    public static final String MOVIES_ADMIN = "MOVIES_ADMIN";
+//    public static final String MOVIES_USER = "MOVIES_USER";
 }
